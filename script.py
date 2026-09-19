@@ -1,5 +1,6 @@
 import pandas as pd
 from mlxtend.frequent_patterns import apriori, association_rules
+from pandas import DataFrame
 
 df = pd.read_csv('_ASSOC_VoleiStars.csv', encoding='latin1')
 
@@ -72,20 +73,35 @@ def nomes_unicos(df):
 
     return nomes_unicos
 
+def print_rules(df_ohe):
+    rules = get_rules(df_ohe)
+
+    regras_derrota = rules[
+        (rules['consequents'].apply(lambda x: 'Derrota' in x)) &
+        (rules['support'] >= 0.10)
+        ]
+    regras_derrota = regras_derrota.sort_values(
+        by='confidence',
+        ascending=False
+    )
+    print(regras_derrota["confidence"])
+
+def get_rules(df_ohe) -> DataFrame:
+    frequent_itemsets = apriori(
+        df_ohe,
+        min_support=0.10,
+        use_colnames=True
+    )
+
+    rules = association_rules(
+        frequent_itemsets,
+        metric="confidence",
+        min_threshold=0.5
+    )
+    return rules
+
 df_limpo = df.drop(columns=['Jogadore(a)s.1'])
 df_limpo['Jogadore(a)s'] = df['Jogadore(a)s'].apply(limpar_jogadores)
 df_ohe = df_one_hot_encoding(df_limpo)
 print(df_ohe)
-
-frequent_itemsets = apriori(
-    df_ohe,
-    min_support=0.05,
-    use_colnames=True
-)
-
-rules = association_rules(
-    frequent_itemsets,
-    metric="confidence",
-    min_threshold=0.5
-)
-print(rules)
+print_rules(df_ohe)
