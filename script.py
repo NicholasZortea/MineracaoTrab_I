@@ -76,15 +76,22 @@ def nomes_unicos(df):
 def print_rules(df_ohe):
     rules = get_rules(df_ohe)
 
-    regras_derrota = rules[
-        (rules['consequents'].apply(lambda x: 'Derrota' in x)) &
-        (rules['support'] >= 0.10)
-        ]
-    regras_derrota = regras_derrota.sort_values(
-        by='confidence',
-        ascending=False
-    )
-    print(regras_derrota["confidence"])
+    print_vitoria(rules)
+    print_derrota(rules)
+    print_estrela(df_ohe)
+    print_estrela_regras(rules)
+
+def print_vitoria(rules):
+    regras_vitoria = regras_para(rules, 'Vitória', 0.10)
+
+    print('\n=== Combinação vitoriosa ===')
+    print(regras_vitoria[['antecedents', 'support', 'confidence', 'lift']])
+
+def print_derrota(rules):
+    regras_derrota = regras_para(rules, 'Derrota', 0.10)
+
+    print('\n=== Combinação perdedora ===')
+    print(regras_derrota[['antecedents', 'support', 'confidence', 'lift']])
 
 def get_rules(df_ohe) -> DataFrame:
     frequent_itemsets = apriori(
@@ -98,7 +105,35 @@ def get_rules(df_ohe) -> DataFrame:
         metric="confidence",
         min_threshold=0.5
     )
+
     return rules
+
+def regras_para(rules, resultado, min_support):
+    filtradas = rules[
+        (rules['consequents'].apply(lambda x: x == frozenset([resultado])))
+        & (rules['antecedents'].apply(lambda x: not (x & {'Vitória', 'Derrota'})))
+        & (rules['support'] >= min_support)
+    ]
+    return filtradas.sort_values(by=['confidence', 'support'], ascending=False)
+
+def print_estrela(df_ohe):
+    jogadores = [c for c in df_ohe.columns if c not in ('Vitória', 'Derrota')]
+
+    resumo = pd.DataFrame({
+        'partidas': df_ohe[jogadores].sum(),
+        'vitorias': df_ohe[jogadores].apply(lambda col: (col & df_ohe['Vitória']).sum()),
+    })
+    resumo['taxa_vitoria'] = resumo['vitorias'] / resumo['partidas']
+
+    print('\n===Estrela===')
+    print(resumo.sort_values(by=['vitorias', 'taxa_vitoria'], ascending=False))
+
+def print_estrela_regras(rules):
+    individuais = regras_para(rules, 'Vitória', 0.10)
+    individuais = individuais[individuais['antecedents'].apply(lambda x: len(x) == 1)]
+    print('\n===regras Estrela===')
+    print(individuais[['antecedents', 'support', 'confidence', 'lift']])
+
 
 df_limpo = df.drop(columns=['Jogadore(a)s.1'])
 df_limpo['Jogadore(a)s'] = df['Jogadore(a)s'].apply(limpar_jogadores)
